@@ -1,0 +1,165 @@
+@page "/register"
+@using Webapp.Models
+@using Webapp.Services
+@inject IAuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <h2 class="text-center mb-4">
+                        <i class="bi bi-person-plus"></i> Đăng Ký
+                    </h2>
+
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
+                            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle-fill"></i> @successMessage
+                            <button type="button" class="btn-close" @onclick="() => successMessage = string.Empty"></button>
+                        </div>
+                    }
+
+                    <EditForm Model="@registerModel" OnValidSubmit="@HandleRegister">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label for="name" class="form-label">
+                                <i class="bi bi-person"></i> Họ và Tên
+                            </label>
+                            <InputText id="name" class="form-control" @bind-Value="registerModel.FullName" 
+                                       placeholder="Nguyễn Văn A" />
+                            <ValidationMessage For="@(() => registerModel.FullName)" class="text-danger" />
+                        </div>
+                        <div>
+                            <label for="username" class="form-label">
+                                <i class="bi bi-person-badge"></i> Username
+                            </label>
+                            <InputText id="username" class="form-control" @bind-Value="registerModel.UserName" 
+                                       placeholder="username123" />
+                            <ValidationMessage For="@(() => registerModel.UserName)" class="text-danger" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">
+                                <i class="bi bi-envelope"></i> Email
+                            </label>
+                            <InputText id="email" class="form-control" @bind-Value="registerModel.Email" 
+                                       placeholder="example@email.com" />
+                            <ValidationMessage For="@(() => registerModel.Email)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="password" class="form-label">
+                                <i class="bi bi-lock"></i> Mật khẩu
+                            </label>
+                            <InputText id="password" type="password" class="form-control" 
+                                       @bind-Value="registerModel.Password" placeholder="Tối thiểu 6 ký tự" />
+                            <ValidationMessage For="@(() => registerModel.Password)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">
+                                <i class="bi bi-lock-fill"></i> Xác nhận mật khẩu
+                            </label>
+                            <InputText id="confirmPassword" type="password" class="form-control" 
+                                       @bind-Value="registerModel.ConfirmPassword" placeholder="Nhập lại mật khẩu" />
+                            <ValidationMessage For="@(() => registerModel.ConfirmPassword)" class="text-danger" />
+                        </div>
+
+                        <div class="d-grid gap-2 mb-3">
+                            <button type="submit" class="btn btn-success btn-lg" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    <span>Đang xử lý...</span>
+                                }
+                                else
+                                {
+                                    <span><i class="bi bi-person-plus"></i> Đăng ký</span>
+                                }
+                            </button>
+                        </div>
+
+                        <div class="text-center">
+                            <p class="mb-0">
+                                Đã có tài khoản? 
+                                <a href="/login" class="text-decoration-none">
+                                    <strong>Đăng nhập ngay</strong>
+                                </a>
+                            </p>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterRequest registerModel = new();
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+    private bool isLoading = false;
+
+    private async Task HandleRegister()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        try
+        {
+            var response = await AuthService.RegisterAsync(registerModel);
+
+            if (response.Success)
+            {
+                successMessage = "Đăng ký thành công! Đang chuyển đến trang đăng nhập...";
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                errorMessage = response.Message ?? "Đăng ký thất bại. Vui lòng thử lại.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
+
+<style>
+    .card {
+        border-radius: 15px;
+        border: none;
+    }
+
+    .btn-success {
+        border-radius: 10px;
+        font-weight: 600;
+    }
+
+    .form-control {
+        border-radius: 8px;
+        padding: 12px;
+    }
+
+    .form-control:focus {
+        border-color: #198754;
+        box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
+    }
+</style>

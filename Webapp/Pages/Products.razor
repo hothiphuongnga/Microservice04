@@ -1,0 +1,383 @@
+@page "/products"
+@using Webapp.Models
+@using Webapp.Services
+@inject IProductService ProductService
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-box-seam"></i> Quản lý Sản phẩm</h2>
+        <button class="btn btn-success" @onclick="ShowAddModal">
+            <i class="bi bi-plus-circle"></i> Thêm sản phẩm
+        </button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill"></i> @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = string.Empty"></button>
+        </div>
+    }
+
+    @if (isLoading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Đang tải...</span>
+            </div>
+            <p class="mt-2">Đang tải dữ liệu...</p>
+        </div>
+    }
+    else if (products == null || !products.Any())
+    {
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle"></i> Chưa có sản phẩm nào
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Tên sản phẩm</th>
+                                <th>Giá</th>
+                                <th>Số lượng</th>
+                                <th>Ngày tạo</th>
+                                <th class="text-center">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var product in products)
+                            {
+                                <tr>
+                                    <td>@product.Id</td>
+                                    <td><strong>@product.Name</strong></td>
+                                    <td><span class="text-success fw-bold">@product.Price.ToString("N0") đ</span></td>
+                                    <td>
+                                        <span class="badge @(product.Stock > 0 ? "bg-success" : "bg-danger")">
+                                            @product.Stock
+                                        </span>
+                                    </td>
+                                    <td>@product.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-primary me-1" @onclick="() => ShowEditModal(product)">Sửa
+                                        </button>
+                                        <button class="btn btn-sm btn-danger" @onclick="() => ShowDeleteConfirm(product)">Xóa
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Modal Thêm/Sửa sản phẩm -->
+@if (showModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        @(isEditMode ? "Cập nhật sản phẩm" : "Thêm sản phẩm mới")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@productModel" OnValidSubmit="@HandleSubmit">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label">Tên sản phẩm</label>
+                            <InputText class="form-control" @bind-Value="productModel.Name" placeholder="Nhập tên sản phẩm" />
+                            <ValidationMessage For="@(() => productModel.Name)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Giá</label>
+                            <InputNumber class="form-control" @bind-Value="productModel.Price" placeholder="0" />
+                            <ValidationMessage For="@(() => productModel.Price)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Số lượng</label>
+                            <InputNumber class="form-control" @bind-Value="productModel.Stock" placeholder="0" />
+                            <ValidationMessage For="@(() => productModel.Stock)" class="text-danger" />
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" @onclick="CloseModal">Hủy</button>
+                            <button type="submit" class="btn btn-primary" disabled="@isSubmitting">
+                                @if (isSubmitting)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                    <span>Đang xử lý...</span>
+                                }
+                                else
+                                {
+                                    <span>@(isEditMode ? "Cập nhật" : "Thêm mới")</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Modal xác nhận xóa -->
+@if (showDeleteModal)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="bi bi-exclamation-triangle"></i> Xác nhận xóa
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" @onclick="CloseDeleteModal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Bạn có chắc chắn muốn xóa sản phẩm <strong>@selectedProduct?.Name</strong>?</p>
+                    <p class="text-muted">Hành động này không thể hoàn tác.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDeleteModal">Hủy</button>
+                    <button type="button" class="btn btn-danger" @onclick="HandleDelete" disabled="@isSubmitting">
+                        @if (isSubmitting)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            <span>Đang xóa...</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-trash"></i> Xóa</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProductDto> products = new();
+    private CreateProductRequest productModel = new();
+    private ProductDto? selectedProduct;
+    private string errorMessage = string.Empty;
+    private string successMessage = string.Empty;
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private bool showModal = false;
+    private bool showDeleteModal = false;
+    private bool isEditMode = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        isLoading = true;
+        errorMessage = string.Empty;
+
+        try
+        {
+            var response = await ProductService.GetAllAsync();
+
+            if (response.Success && response.Content != null)
+            {
+                products = response.Content;
+            }
+            else
+            {
+                errorMessage = response.Message ?? "Không thể tải danh sách sản phẩm";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ShowAddModal()
+    {
+        isEditMode = false;
+        productModel = new CreateProductRequest();
+        showModal = true;
+    }
+
+    private void ShowEditModal(ProductDto product)
+    {
+        isEditMode = true;
+        selectedProduct = product;
+        productModel = new CreateProductRequest
+        {
+            Name = product.Name,
+            Price = product.Price,
+            Stock = product.Stock,
+            CategoryId = product.CategoryId
+        };
+        showModal = true;
+    }
+
+    private void ShowDeleteConfirm(ProductDto product)
+    {
+        selectedProduct = product;
+        showDeleteModal = true;
+    }
+
+    private void CloseModal()
+    {
+        showModal = false;
+        productModel = new();
+        selectedProduct = null;
+    }
+
+    private void CloseDeleteModal()
+    {
+        showDeleteModal = false;
+        selectedProduct = null;
+    }
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        try
+        {
+            if (isEditMode && selectedProduct != null)
+            {
+                var updateDto = new ProductDto
+                {
+                    Id = selectedProduct.Id,
+                    Name = productModel.Name,
+                    Price = productModel.Price,
+                    Stock = productModel.Stock,
+                    CategoryId = productModel.CategoryId,
+                    CreatedAt = selectedProduct.CreatedAt
+                };
+
+                var response = await ProductService.UpdateAsync(selectedProduct.Id, updateDto);
+
+                if (response.Success)
+                {
+                    successMessage = "Cập nhật sản phẩm thành công!";
+                    CloseModal();
+                    await LoadProducts();
+                }
+                else
+                {
+                    errorMessage = response.Message ?? "Cập nhật sản phẩm thất bại";
+                }
+            }
+            else
+            {
+                var response = await ProductService.CreateAsync(productModel);
+
+                if (response.Success)
+                {
+                    successMessage = "Thêm sản phẩm thành công!";
+                    CloseModal();
+                    await LoadProducts();
+                }
+                else
+                {
+                    errorMessage = response.Message ?? "Thêm sản phẩm thất bại";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (selectedProduct == null) return;
+
+        isSubmitting = true;
+        errorMessage = string.Empty;
+        successMessage = string.Empty;
+
+        try
+        {
+            var response = await ProductService.DeleteAsync(selectedProduct.Id);
+
+            if (response.Success)
+            {
+                successMessage = "Xóa sản phẩm thành công!";
+                CloseDeleteModal();
+                await LoadProducts();
+            }
+            else
+            {
+                errorMessage = response.Message ?? "Xóa sản phẩm thất bại";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}
+
+<style>
+    .table th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .card {
+        border-radius: 12px;
+        border: none;
+    }
+
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    .modal.show {
+        display: block;
+    }
+
+    .modal-content {
+        border-radius: 12px;
+    }
+</style>

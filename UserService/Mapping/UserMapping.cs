@@ -14,6 +14,9 @@ public class UserMapping : Profile
         CreateMap<UserDto, User>()
             .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.UserRoles));
 
+        CreateMap<UserRegisterDTO, User>().ReverseMap();
+        CreateMap<UserLoginDTO, User>().ReverseMap();
+
         // Role
         CreateMap<Role,RoleDto>()
             .ForMember(dest => dest.UserRoles, opt => opt.MapFrom(src => src.UserRoles));
@@ -23,11 +26,9 @@ public class UserMapping : Profile
 
         // UserRole
         CreateMap<UserRole,UserRoleDto>()
-            .ForMember(dest => dest.User, opt => opt.MapFrom(src => src.User))
             .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role));
         
         CreateMap<UserRoleDto, UserRole>()
-            .ForMember(dest => dest.User, opt => opt.MapFrom(src => src.User))
             .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role));
     }
 }

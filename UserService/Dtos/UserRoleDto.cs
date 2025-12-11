@@ -12,6 +12,4 @@ public class UserRoleDto
     public DateTime CreateAt { get; set; }
 
     public virtual RoleDto Role { get; set; } = null!;
-
-    public virtual UserDto User { get; set; } = null!;
 }

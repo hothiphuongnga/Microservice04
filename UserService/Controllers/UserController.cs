@@ -35,17 +35,27 @@ public class UsersController : ControllerBase
 
     // POST: api/users
     [HttpPost]
-    public async Task<IActionResult> CreateUser(UserDto userDto)
+    public async Task<IActionResult> CreateUser(UserRegisterDTO userDto)
     {
         if (!ModelState.IsValid)
         {
             return ResponseEntity.Fail("Invalid model state", 400);
         }
 
-        var result = await _userService.AddAsync(userDto);
+        var result = await _userService.RegisterAsync(userDto);
         return result;
     }
 
+    //login
+    [HttpPost("login")]
+    public async Task<IActionResult> LoginUser(UserLoginDTO userLoginDto)
+    {
+        if (!ModelState.IsValid) return ResponseEntity.Fail("Invalid model state", 400);
+        var result = await _userService.LoginAsync(userLoginDto);
+        return result;
+    }
+
+    
     // PUT: api/users/5
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateUser(int id, UserDto userDto)
