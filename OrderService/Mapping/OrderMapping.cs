@@ -9,6 +9,9 @@ public class OrderMapping : Profile
         CreateMap<Order,OrderDto>()
             .ForMember(dest => dest.OrderItems, opt => opt.MapFrom(src => src.OrderItems));
         
+        CreateMap<CreateOrderDto, Order>().ReverseMap();
+
+
         // order item
         CreateMap<OrderItem,OrderItemDto>();
         

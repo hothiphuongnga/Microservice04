@@ -30,6 +30,15 @@ builder.Services.AddServerSideBlazor();    // Hỗ trợ Blazor Server
 builder.Services.AddControllers();         // Hỗ trợ API Controllers
 builder.Services.AddSwaggerGen();          // Hỗ trợ Swagger (OpenAPI) cho tài liệu API
 
+// DANG KI HttpClient de goi ProductService
+builder.Services.AddHttpClient("ProductService", client =>
+{
+    var productServiceUrl = "https://localhost:7137/product-service";
+    client.BaseAddress = new Uri(productServiceUrl);
+});
+
+
+
 var app = builder.Build();
 
 // === CẤU HÌNH MIDDLEWARE PIPELINE ===

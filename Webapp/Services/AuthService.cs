@@ -16,6 +16,7 @@ public class AuthService : IAuthService
 
     public AuthService(IHttpClientFactory httpClientFactory)
     {
+        // https://localhost:xxxx/user-service/api 
         client = httpClientFactory.CreateClient("UserApi");
         _jsonOptions = new JsonSerializerOptions
         {

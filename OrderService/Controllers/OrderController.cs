@@ -35,14 +35,15 @@ public class OrdersController : ControllerBase
 
     // POST: api/orders
     [HttpPost]
-    public async Task<IActionResult> CreateOrder(OrderDto orderDto)
+    
+    public async Task<IActionResult> CreateOrder(CreateOrderDto orderDto)
     {
         if (!ModelState.IsValid)
         {
             return ResponseEntity.Fail("Invalid model state", 400);
         }
 
-        var result = await _orderService.AddAsync(orderDto);
+        var result = await _orderService.CreateOrderAsync(orderDto);
         return result;
     }
 
