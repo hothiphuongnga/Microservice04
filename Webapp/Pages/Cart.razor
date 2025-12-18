@@ -1,0 +1,224 @@
+@page "/cart"
+@using Webapp.Models
+@inject ICartService CartService
+@inject HttpClient HttpClient
+
+<div class="container mt-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+        <h2 class="mb-0"><i class="bi bi-bag-check"></i> Giỏ hàng</h2>
+
+        <button class="btn btn-primary"
+                @onclick="PlaceOrder"
+                disabled="@(!items.Any() || isSubmitting)">
+            @if (isSubmitting)
+            {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                <span>Đang đặt hàng...</span>
+            }
+            else
+            {
+                <i class="bi bi-credit-card"></i> <span>Đặt hàng</span>
+            }
+        </button>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill"></i> @errorMessage
+            <button type="button" class="btn-close" @onclick="() => errorMessage = string.Empty"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill"></i> @successMessage
+            <button type="button" class="btn-close" @onclick="() => successMessage = string.Empty"></button>
+        </div>
+    }
+
+    @if (!items.Any())
+    {
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle"></i> Giỏ hàng đang trống
+        </div>
+    }
+    else
+    {
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead class="table-light">
+                        <tr>
+                            <th>Sản phẩm</th>
+                            <th class="text-end">Đơn giá</th>
+                            <th class="text-center">SL</th>
+                            <th class="text-end">Tạm tính</th>
+                            <th class="text-center">Tồn kho</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var it in items)
+                        {
+                            var outOfStock = it.Quantity > it.Stock;
+                            <tr class="@(outOfStock ? "table-danger" : "")">
+                                <td>
+                                    <div class="fw-semibold">@it.Name</div>
+                                    <div class="text-muted small">#@it.ProductId</div>
+                                </td>
+
+                                <td class="text-end">@it.Price.ToString("N2")</td>
+
+                                <td class="text-center" style="max-width:140px;">
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <button class="btn btn-outline-secondary btn-sm"
+                                                @onclick="() => UpdateQuantity(it.ProductId,-1)"
+                                                disabled="@(isSubmitting || it.Quantity <= 1)">
+                                            -
+                                        </button>
+
+                                        <span class="px-2 fw-semibold">@it.Quantity</span>
+
+                                        <button class="btn btn-outline-secondary btn-sm"
+                                                @onclick="() => UpdateQuantity(it.ProductId,1)"
+                                                disabled="@(isSubmitting || it.Quantity >= it.Stock)">
+                                            +
+                                        </button>
+                                    </div>
+
+                                    @if (outOfStock)
+                                    {
+                                        <div class="text-danger small mt-1">
+                                            Vượt tồn kho (tồn: @it.Stock)
+                                        </div>
+                                    }
+                                </td>
+
+                                <td class="text-end fw-bold">
+                                    @( (it.Price * it.Quantity).ToString("N2") )
+                                </td>
+
+                                <td class="text-center">
+                                    <span class="badge @(it.Stock > 0 ? "bg-success" : "bg-danger")">
+                                        @it.Stock
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+
+                <hr />
+
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2">
+                    <div class="text-muted">
+                        <i class="bi bi-receipt"></i> @items.Count dòng sản phẩm
+                    </div>
+
+                    <div class="text-end">
+                        <div class="small text-muted">Tổng thanh toán</div>
+                        <div class="fs-4 fw-bold text-success">
+                            @GrandTotal.ToString("N2")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+@code {
+    private List<CartItem> items = new();
+
+    private bool isSubmitting = false;
+    private string errorMessage = "";
+    private string successMessage = "";
+
+    private decimal GrandTotal => items.Sum(x => x.Total);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCartItems();
+    }
+    private async Task LoadCartItems()
+    {
+        items = await CartService.GetCartItemAsync();
+    }
+
+     // hàm update số lượng
+    private async Task UpdateQuantity(int productId, int quantity)
+    {
+        await CartService.UpdateCartItemAsync(productId, quantity);
+        await LoadCartItems();
+        StateHasChanged();
+
+    }
+    
+
+    private async Task PlaceOrder()
+    {
+        errorMessage = "";
+        successMessage = "";
+
+        // chặn đặt hàng nếu có món vượt tồn kho
+        if (items.Any(x => x.Quantity > x.Stock))
+        {
+            errorMessage = "Có sản phẩm vượt tồn kho. Vui lòng giảm số lượng trước khi Order.";
+            return;
+        }
+
+        isSubmitting = true;
+
+        try
+        {
+            // payload gửi lên API
+            // kieerm tra login token, check quyen
+            var req = new OrderRequest
+            {
+                BuyerId = 24,
+                TotalAmount = GrandTotal,
+                OrderDetails = items.Select(x => new OrderDetail
+                {
+                    ProductId = x.ProductId,
+                    Quantity = x.Quantity,
+                    UnitPrice = x.Price
+                }).ToList()
+            };
+
+            // TODO: đổi endpoint theo backend của bạn
+            @* var response = await HttpClient.PostAsJsonAsync("api/orders", req); *@
+
+            // order serrvice 
+            var response = await HttpClient.PostAsJsonAsync("https://localhost:7137/order-service/api/Orders",req);
+
+            @* var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK);  *@
+
+            if (response.IsSuccessStatusCode)
+            {
+                successMessage = "Đặt hàng thành công!";
+                // Nếu muốn: clear cart
+                await CartService.CleanCartAsync();
+                await LoadCartItems();
+                StateHasChanged();
+            }
+            else
+            {
+                var serverText = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Đặt hàng thất bại (HTTP {(int)response.StatusCode}). {serverText}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Có lỗi xảy ra: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    }
+

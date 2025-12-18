@@ -41,6 +41,8 @@ builder.Services.AddHttpClient("Gateway", client =>
 // Đăng ký AuthService
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICartService, CartService>();
+
 
 var app = builder.Build();
 

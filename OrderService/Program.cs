@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
+using OrderService.Kafka;
 using OrderService.Repositories;
 using OrderService.Repositories.Base;
 using OrderService.Services;
@@ -34,10 +35,13 @@ builder.Services.AddSwaggerGen();          // Hỗ trợ Swagger (OpenAPI) cho t
 builder.Services.AddHttpClient("ProductService", client =>
 {
     var productServiceUrl = "https://localhost:7137/product-service";
-    client.BaseAddress = new Uri(productServiceUrl);
+    client.BaseAddress = new Uri("https://localhost:7151");
 });
 
 
+
+// DI KAfka
+builder.Services.AddScoped<IKafkaProducer, KafkaProducer>();
 
 var app = builder.Build();
 

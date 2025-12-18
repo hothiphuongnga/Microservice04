@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using ProductService.Data;
+using ProductService.Kafka;
 using ProductService.Mapping;
 using ProductService.Repositories;
 using ProductService.Repositories.Base;
@@ -126,6 +127,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 
 
 builder.Services.AddAuthorization();
+
+
+// đăng ký Kafka Consumer as Background Service
+builder.Services.AddHostedService<KafkaConsumer>();
 
 var app = builder.Build();
 
