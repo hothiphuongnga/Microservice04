@@ -6,114 +6,102 @@ namespace ProductService.Kafka
 {
     public class KafkaConsumer : BackgroundService
     {
-        private readonly IConsumer<string, string> _consumer;
-        private readonly IServiceProvider _serviceProvider;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<KafkaConsumer> _logger;
 
-        public KafkaConsumer(IServiceProvider serviceProvider, ILogger<KafkaConsumer> logger)
+        public KafkaConsumer(
+            IServiceScopeFactory scopeFactory,
+            ILogger<KafkaConsumer> logger)
+        {
+            _scopeFactory = scopeFactory;
+            _logger = logger;
+        }
+
+        protected override Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            return Task.Run(() => ConsumeAsync("order_created", stoppingToken), stoppingToken);
+        }
+
+        private async Task ConsumeAsync(string topic, CancellationToken stoppingToken)
         {
             var config = new ConsumerConfig
             {
                 BootstrapServers = "localhost:9092",
-                GroupId = "product-service-group", // tạo group id riêng cho product service để tránh xung đột với các service khác
+                GroupId = "product-service-group",
                 AutoOffsetReset = AutoOffsetReset.Earliest,
-                EnableAutoCommit = true
-            };
-            _consumer = new ConsumerBuilder<string, string>(config).Build();
-            _serviceProvider = serviceProvider;
-            _logger = logger;
-        }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            _consumer.Subscribe("order_created"); // subscribe topic 'order_created'
-            _logger.LogInformation("Kafka Consumer đã subscribe topic 'order_created'"); 
+                EnableAutoCommit = false // ❗ BẮT BUỘC
+            };
+
+            using var consumer = new ConsumerBuilder<string, string>(config).Build();
+            consumer.Subscribe(topic);
+
+            _logger.LogInformation("KafkaConsumer subscribed topic: {Topic}", topic);
 
             try
             {
                 while (!stoppingToken.IsCancellationRequested)
                 {
+                    var consumeResult = consumer.Consume(stoppingToken);
+                    if (consumeResult?.Message == null) continue;
+
                     try
                     {
-                        var consumeResult = _consumer.Consume(stoppingToken);
-                        
-                        if (consumeResult != null)
+                        var orderDetails = JsonSerializer.Deserialize<List<ProductOrderDto>>(
+                            consumeResult.Message.Value
+                        );
+
+                        if (orderDetails == null || !orderDetails.Any())
                         {
-                            _logger.LogInformation($"Nhận được message từ Kafka: Key={consumeResult.Message.Key}");
-                            
-                            // Deserialize message
-                            var orderDetails = JsonSerializer.Deserialize<List<ProductOrderDto>>(consumeResult.Message.Value);
-                            
-                            if (orderDetails != null && orderDetails.Any())
+                            _logger.LogWarning("Kafka message empty or invalid");
+                            consumer.Commit(consumeResult);
+                            continue;
+                        }
+
+                        using var scope = _scopeFactory.CreateScope();
+                        var productService = scope.ServiceProvider
+                            .GetRequiredService<IProductService>();
+
+                        foreach (var item in orderDetails)
+                        {
+                            _logger.LogInformation(
+                                "Update stock ProductId={ProductId}, Qty={Qty}",
+                                item.ProductId,
+                                -item.Quantity
+                            );
+
+                            var result = await productService
+                                .UpdateStockAsync(item.ProductId, -item.Quantity);
+
+                            if (result.StatusCode != 200)
                             {
-                                // Xử lý cập nhật tồn kho
-                                await UpdateProductStock(orderDetails);
+                                throw new Exception(result.Message);
                             }
                         }
-                    }
-                    catch (ConsumeException ex)
-                    {
-                        _logger.LogError($"Lỗi khi consume message: {ex.Error.Reason}");
+
+                        // ✅ COMMIT SAU KHI XỬ LÝ THÀNH CÔNG
+                        consumer.Commit(consumeResult);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError($"Lỗi khi xử lý message: {ex.Message}");
+                        _logger.LogError(ex, "Error processing Kafka message");
+                        // ❌ KHÔNG COMMIT → Kafka sẽ retry
                     }
-
-                    await Task.Delay(100, stoppingToken);
                 }
             }
             finally
             {
-                _consumer.Close();
-                _logger.LogInformation("Kafka Consumer đã đóng");
+                consumer.Close();
+                _logger.LogInformation("KafkaConsumer closed");
             }
-        }
-
-        private async Task UpdateProductStock(List<ProductOrderDto> orderDetails)
-        {
-            using (var scope = _serviceProvider.CreateScope())
-            {
-                var productService = scope.ServiceProvider.GetRequiredService<IProductService>();
-                
-                foreach (var item in orderDetails)
-                {
-                    try
-                    {
-                        _logger.LogInformation($"Cập nhật tồn kho cho ProductId={item.ProductId}, Quantity={-item.Quantity}");
-                        
-                        // Gọi UpdateStockAsync với số lượng âm để giảm tồn kho
-                        var result = await productService.UpdateStockAsync(item.ProductId, -item.Quantity);
-                        
-                        if (result.StatusCode == 200)
-                        {
-                            _logger.LogInformation($"Cập nhật tồn kho thành công cho ProductId={item.ProductId}");
-                        }
-                        else
-                        {
-                            _logger.LogWarning($"Cập nhật tồn kho thất bại cho ProductId={item.ProductId}: {result.Message}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Lỗi khi cập nhật tồn kho cho ProductId={item.ProductId}: {ex.Message}");
-                    }
-                }
-            }
-        }
-
-        public override void Dispose()
-        {
-            _consumer?.Dispose();
-            base.Dispose();
         }
     }
 
-    // DTO để deserialize message từ Kafka
+    // DTO
     public class ProductOrderDto
     {
         public int ProductId { get; set; }
-        public decimal UnitPrice { get; set; }
         public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
     }
 }
