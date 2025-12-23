@@ -132,6 +132,14 @@ builder.Services.AddAuthorization();
 // đăng ký Kafka Consumer as Background Service
 builder.Services.AddHostedService<KafkaConsumer>();
 
+
+
+// DI CQRS 
+builder.Services.AddScoped<IProductCommandService, ProductCommandService>();
+builder.Services.AddScoped<IProductQueryService, ProductQueryService>();
+builder.Services.AddScoped<IProductCQRSRepository, ProductCQRSRepository>();
+
+
 var app = builder.Build();
 
 // === CẤU HÌNH MIDDLEWARE PIPELINE ===
