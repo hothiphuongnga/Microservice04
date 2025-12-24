@@ -11,6 +11,7 @@ namespace ProductService.Services
     public interface IProductService : IServiceBase<Product, ProductDto>
     {
         Task<ResponseEntity> UpdateStockAsync(int productId, int quantity);
+        Task<int> CreateProductAsync(string name, decimal price, int stock);
     }
 
     public class ProductServicee : ServiceBase<Product, ProductDto>, IProductService
@@ -43,6 +44,19 @@ namespace ProductService.Services
             await _uow.SaveChangesAsync();
             return ResponseEntity.Ok(product);
 
+        }
+    
+        public async Task<int> CreateProductAsync(string name, decimal price, int stock)
+        {
+            var product = new Product
+            {
+                Name = name,
+                Price = price,
+                Stock = stock
+            };
+            await _productRepository.AddAsync(product);
+            await _uow.SaveChangesAsync();
+            return product.Id;
         }
     }
 }

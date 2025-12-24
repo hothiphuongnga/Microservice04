@@ -64,3 +64,6 @@ app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
 app.Run();
+ 
+
+ // cors : nhận request từ nguồn, ip, domain ... nào 

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -131,6 +132,9 @@ builder.Services.AddAuthorization();
 
 // đăng ký Kafka Consumer as Background Service
 builder.Services.AddHostedService<KafkaConsumer>();
+builder.Services.AddHostedService<KafkaReduceStockConsumer>();
+
+builder.Services.AddMediatR(typeof(Program).Assembly);
 
 var app = builder.Build();
 

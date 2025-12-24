@@ -98,7 +98,7 @@ namespace ProductService.Kafka
     }
 
     // DTO
-    public class ProductOrderDto
+    class ProductOrderDto
     {
         public int ProductId { get; set; }
         public int Quantity { get; set; }

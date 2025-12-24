@@ -1,0 +1,28 @@
+Controllers
+ └── ProductCQRSController.cs   (chỉ gọi MediatR)
+ │
+Application // tạo mới thư mục Application
+ ├── Commands
+ │   ├── CreateProduct
+ │   │   ├── CreateProductCommand.cs  // dto
+ │   │   └── CreateProductCommandHandler.cs  // tương tự service
+ │   └── UpdateStock
+ │       ├── UpdateStockCommand.cs
+ │       └── UpdateStockCommandHandler.cs
+ │
+ └── Queries
+ │   └── GetProductById
+ │       ├── GetProductByIdQuery.cs
+ │       └── GetProductByIdQueryHandler.cs
+Services
+ └── ProductService.cs      (GIỮ NGUYÊN)
+ │
+Repositories
+ └── ProductRepository.cs
+ │
+Data
+ └── ProductDbServiceContext.cs
+
+Models
+Dtos
+Kafka

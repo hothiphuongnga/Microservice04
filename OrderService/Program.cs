@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using OrderService.Data;
 using OrderService.Kafka;
@@ -42,6 +43,10 @@ builder.Services.AddHttpClient("ProductService", client =>
 
 // DI KAfka
 builder.Services.AddScoped<IKafkaProducer, KafkaProducer>();
+
+// CQRS
+builder.Services.AddMediatR(typeof(Program).Assembly);
+
 
 var app = builder.Build();
 
